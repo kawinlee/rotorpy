@@ -131,3 +131,6 @@ dmypy.json
 
 sandbox.py
 waypoint_traj.py
+
+#Others
+.DS_Store
