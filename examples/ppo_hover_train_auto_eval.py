@@ -112,12 +112,3 @@ while True:  # Run indefinitely..
         # Reset the subprocess timer
         subprocess_timer = time.time()
     
-
-
-'''
-    if num_timesteps % 500000 == 0:
-        # Run another file here
-        script_path = "ppo_hover_eval.py"
-        # Run the script using subprocess
-        subprocess.run(["python", script_path])
-'''
