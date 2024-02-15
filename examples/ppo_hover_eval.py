@@ -3,6 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import subprocess
+import re
+import tensorflow as tf
+import numpy as np
+from PIL import Image
 
 from rotorpy.vehicles.crazyflie_params import quad_params  # Import quad params for the quadrotor environment.
 
@@ -224,10 +228,70 @@ def evaluate(auto_mode=False):
         ax_pos[2].set_xlabel("Time, s")
 
         # Save fig. 
-        fig_pos.savefig(os.path.join(frame_path, 'position_vs_time.png'))
+        fig_pos.savefig(os.path.join(frame_path, 'position_vs_time.png')) #This is overwriting the same png
+        # Maybe perhaps save multiple pngs and generate a gif? Double check
+        #Need to tell tensorboard to pull plots from a directory in the script
+        #Example under train.py
+        #Figures are made under evaluate.py returns figure out to training script variable called figures
 
-    plt.show()
+        # Tensorboard writer is log writer 
+        #logger.addfigure(descripter (time ), figure is the data )
+        # can you get the gif to be posted onto tensorboard
+        # Look at SummaryWriter
+        #Under utils, want this to run the script in terminal
+
+        #Epoch is going through running entire training set for supervised trainingset this is misused here
+        # Should pair execution to every time step 
+
+        #timestep is the progress meter instead in RL not supervised learning
+        # Rename epoch to 100,000 timesteps 
+        #tb log name is the name of the tensorboard
+
+    #plt.show() # Can get rid of this maybe instead do savefig instead 
+    
+    # Extracting the latest gif from data_out's newest hover_N path where N is the largest number
+    #Extracting latest pngs to make into an animated picture on tensorboard
+    #latest_output_path = get_newest_output_folder_path(output_dir)
+
+
     #TODO: need to come up with condition to close the program after all the drones have fallen out of the frame
+    
 
 if __name__ == "__main__":
     evaluate()
+
+
+def get_newest_output_folder_path(folder_path):
+    #This function assumes there are only folders in data_out
+    folder_list = os.listdir(folder_path)
+    id_list = []
+    for folder in folder_list:
+        #iterating to create a list of IDs to sort. Highest ID number is latest evaluation
+        pattern = r'(\d+)'
+        folder_id_match = re.search(pattern, folder)
+        folder_id = folder_id_match.group() or 0
+        id_list.append(int(folder_id))
+    id_list = sorted(id_list)
+    newest_output_folder_path = folder_path+f"/hover_{id_list[-1]}"
+    return newest_output_folder_path
+
+def upload_animations_to_tensorboard(folder_path):
+    # Upload the list of pngs in order into a gif
+    file_list = os.listdir(folder_path)
+    pattern = r'(\d+)'
+    png_list = [file for file in file_list if file.endswith('.png')]
+    sorted_png_images = sorted(png_list, key=lambda file_name: re.search(pattern, file_name).group())
+
+    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rotorpy", "learning", "logs")
+
+    writer = tf.summary.create_file_writer(log_dir)
+   
+    with writer.as_default():
+        for index, png in enumerate(sorted_png_images):
+           image_path = os.path.join(folder_path, png)
+           image = Image.open(image_path)
+           image_array = np.array(image)
+           image_array = np.expand_dims(image_array, 0)
+           tf.summary.image(f"Frame {index}", image_array, step=index)
+        writer.flush()
+        writer.close()
