@@ -36,8 +36,11 @@ def upload_animations_to_tensorboard(folder_path):
     pattern = r'(\d+)'
     png_list = [file for file in file_list if file.endswith('.png')]
     sorted_png_images = sorted(png_list, key=lambda file_name: '0' if re.search(pattern, file_name) is None else re.search(pattern, file_name).group())
-
+    
     log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rotorpy", "learning", "logs")
+    if not os.path.exists(log_dir + "/videos"):
+        os.makedirs(log_dir+"/videos", exist_ok=True)
+        print("videos directory has not yet been created and now was created.")
     log_writer = SummaryWriter(log_dir+"/videos")
     
     # Fig creation
