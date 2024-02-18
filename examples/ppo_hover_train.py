@@ -82,7 +82,7 @@ while True:  # Run indefinitely..
 
     # Save the model
     model.save(f"{models_dir}/PPO/{start_time.strftime('%H-%M-%S')}/hover_{num_timesteps*(epoch_count+1)}")
-
+    # This is how the tensorboard files are created 
     if (auto_eval == "y") & (epoch_count % 5 == 0):
          # TODO: importing the model autoruns the evaluate defaulted for those looking to run the code using eval, need to make that code executable as a file and from here
         evaluate(auto_mode=True)
