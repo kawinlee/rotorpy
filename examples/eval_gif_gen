@@ -172,10 +172,8 @@ for (k, num_timesteps_idx) in enumerate(num_timesteps_idxs):  # For each num_tim
     rotation = np.array(rotation_all_drones)
     N, M = x.shape
 
-# world env needs to be changed
-    world = World.from_file(
-        os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'rotorpy', 'worlds', 'double_pillar.json')))
-    #world = World.empty() #x min, x max,
+
+    world = World.empty() #x min, x max,
     ani = animate.animate(time=T,
                           position = np.stack([x, y, z], axis=2),
                           wind=np.zeros((N,M,3)),
