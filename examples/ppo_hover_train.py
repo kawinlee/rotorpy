@@ -1,8 +1,7 @@
 import gymnasium as gym
-import numpy as np
-import matplotlib.pyplot as plt
 import os
 from datetime import datetime
+from ppo_hover_eval import evaluate
 
 from rotorpy.vehicles.crazyflie_params import quad_params  # Import quad params for the quadrotor environment.
 
@@ -29,6 +28,9 @@ if not os.path.exists(models_dir):
     os.makedirs(models_dir)
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
+
+# Ask user if they want to run ppo_hover_eval automatically to see progress 
+auto_eval = input("Would you like to get training progress video updates? (Y/N)").lower()
 
 # Next import Stable Baselines.
 try:
@@ -78,5 +80,9 @@ while True:  # Run indefinitely..
 
     # Save the model
     model.save(f"{models_dir}/PPO/{start_time.strftime('%H-%M-%S')}/hover_{num_timesteps*(epoch_count+1)}")
+    # This is how the tensorboard files are created 
+    if (auto_eval == "y") & (epoch_count % 5 == 0):
+         # TODO: importing the model autoruns the evaluate defaulted for those looking to run the code using eval, need to make that code executable as a file and from here
+        evaluate(auto_mode=True)
 
     epoch_count += 1

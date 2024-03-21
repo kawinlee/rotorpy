@@ -14,7 +14,25 @@ from scipy.spatial.transform import Rotation
 from rotorpy.utils.shapes import Quadrotor
 import matplotlib
 import os
-matplotlib.rcParams['animation.ffmpeg_path'] = '/opt/homebrew/bin/ffmpeg'
+import platform
+import subprocess
+
+# In importing ffmpeg, we must identify the module's directory
+# Here we select the correct command based on OS 
+locate_lib_cmd = "where" if platform.system() == "Windows" else "which"
+ffmpeg_path = None
+try:
+    # Using the correct commandline command to extract the directory of ffmpeg
+    ffmpeg_path_output = subprocess.run([locate_lib_cmd, 'ffmpeg'], check=True, text=True, capture_output=True)
+    ffmpeg_path = ffmpeg_path_output.stdout.strip()
+except subprocess.CalledProcessError:
+    print("Your operating system is unsupported by out library")
+    
+if ffmpeg_path:
+    matplotlib.rcParams['animation.ffmpeg_path'] = ffmpeg_path
+else:
+    print("ffmpeg is not installed on your device, do 'brew install ffmpeg'")
+    
 class ClosingFuncAnimation(FuncAnimation):
     def __init__(self, fig, func, *args, **kwargs):
         self._close_on_finish = kwargs.pop('close_on_finish')

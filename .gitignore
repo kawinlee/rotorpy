@@ -109,7 +109,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-rotorvenv
+RotorRL
 
 # Spyder project settings
 .spyderproject
@@ -131,3 +131,6 @@ dmypy.json
 
 sandbox.py
 waypoint_traj.py
+
+# Videos
+.mp4
