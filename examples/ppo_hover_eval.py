@@ -1,3 +1,4 @@
+from datetime import datetime
 import gymnasium as gym
 import numpy as np
 import matplotlib.pyplot as plt
@@ -225,13 +226,18 @@ def evaluate(auto_mode=False):
         world = World.from_file(
             os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'rotorpy', 'worlds', 'double_pillar.json')))
         #world = World.empty() 
+        
+        #TODO: this code is overwriting the same name of the video 
         ani = animate.animate(time=T,
                             position = np.stack([x, y, z], axis=2),
                             wind=np.zeros((N,M,3)),
                             rotation=rotation,
                             animate_wind=True,
                             world=world,
-                            filename=os.path.join(output_dir,f"{extract_number(num_timesteps_list_sorted[num_timesteps_idx])}_animation.mp4"),
+                            #TODO: The animation is being overwritten beccasue every time step has one epoch 
+                            # and all the epochs have the same name!
+                            filename=os.path.join(output_dir,f"{datetime.now().strftime('%H-%M-%S')}_animation.mp4"),
+                            #extract_number(num_timesteps_list_sorted[num_timesteps_idx]
                             blit=False,
                             show_axes=True,
                             close_on_finish=False)
