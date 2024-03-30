@@ -133,4 +133,4 @@ sandbox.py
 waypoint_traj.py
 
 # Videos
-.mp4
+*.mp4
