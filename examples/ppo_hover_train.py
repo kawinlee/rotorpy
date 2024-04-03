@@ -1,6 +1,8 @@
 import gymnasium as gym
 import os
 from datetime import datetime
+
+import numpy as np
 from ppo_hover_eval import evaluate
 
 from rotorpy.vehicles.crazyflie_params import quad_params  # Import quad params for the quadrotor environment.
@@ -10,6 +12,9 @@ from rotorpy.learning.quadrotor_environments import QuadrotorEnv
 
 # Reward functions can be specified by the user, or we can import from existing reward functions.
 from rotorpy.learning.quadrotor_reward_functions import hover_reward
+from rotorpy.wind.dryden_winds import DrydenGust
+
+from scenario_dict import training_scenarios
 
 """
 In this script, we demonstrate how to train a hovering control policy in RotorPy using Proximal Policy Optimization. 
@@ -29,6 +34,8 @@ if not os.path.exists(models_dir):
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 
+#Ask user if they want to run the default simulation
+inject_eval_scenario = input("Would you like to inject your evaluation scenario? (Y/N)").lower()
 # Ask user if they want to run ppo_hover_eval automatically to see progress 
 auto_eval = input("Would you like to get training progress video updates? (Y/N)").lower()
 
@@ -48,7 +55,27 @@ reward_function = lambda obs, act: hover_reward(obs, act, weights={'x': 1, 'v': 
 
 # Make the environment. For this demo we'll train a policy to command collective thrust and body rates.
 # Turning render_mode="None" will make the training run much faster, as visualization is a current bottleneck. 
-env = gym.make("Quadrotor-v0", 
+
+# Select the training scenario using scenarios stored in scenario_dict.py. You may add more scenarios to study.
+env = None
+if inject_eval_scenario:
+    # Injecting scenario parameters into the environment for training
+    scenario_list = list(training_scenarios.keys())
+    for i, scenario in enumerate(scenario_list):
+        print(f"{i}: {scenario_list[i]}") 
+    selected_scenario_id = int(input("Select scenario: "))
+    selected_scenario = training_scenarios.get(scenario_list[selected_scenario_id])
+    env = gym.make(id = selected_scenario.get('id'), 
+                control_mode =selected_scenario.get('control_mode'), 
+                reward_fn = selected_scenario.get('reward_fn'),
+                quad_params = selected_scenario.get('quad_params'),
+                max_time = selected_scenario.get('max_time'),
+                world = selected_scenario.get('world'),
+                sim_rate = selected_scenario.get('sim_rate'),
+                render_mode=selected_scenario.get('render_mode'))
+else: 
+    # Running the default ppo_hover_train simulation
+    env = gym.make("Quadrotor-v0", 
                 control_mode ='cmd_motor_speeds', 
                 reward_fn = reward_function,
                 quad_params = quad_params,
@@ -82,7 +109,6 @@ while True:  # Run indefinitely..
     model.save(f"{models_dir}/PPO/{start_time.strftime('%H-%M-%S')}/hover_{num_timesteps*(epoch_count+1)}")
     # This is how the tensorboard files are created 
     if (auto_eval == "y") & (epoch_count % 5 == 0):
-         # TODO: importing the model autoruns the evaluate defaulted for those looking to run the code using eval, need to make that code executable as a file and from here
         evaluate(auto_mode=True)
 
     epoch_count += 1
