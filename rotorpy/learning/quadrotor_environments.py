@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
 from enum import Enum
+from rotorpy.sensors.imu import Imu
 from rotorpy.world import World
 from rotorpy.vehicles.multirotor import Multirotor
 from rotorpy.vehicles.crazyflie_params import quad_params as crazyflie_params
@@ -51,7 +52,10 @@ class QuadrotorEnv(gym.Env):
                                   'q': np.array([0, 0, 0, 1]), # [i,j,k,w]
                                   'w': np.zeros(3,),
                                   'wind': np.array([0,0,0]),  # Since wind is handled elsewhere, this value is overwritten
-                                  'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53])},
+                                  'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53]),
+                                  'imu_accel': np.array([0,0,0]),
+                                  'imu_gyro': np.array([0,0,0])
+                                  },
                  control_mode = 'cmd_vel',
                  reward_fn = hover_reward,            
                  quad_params = crazyflie_params,                   
@@ -289,9 +293,19 @@ class QuadrotorEnv(gym.Env):
         
         # First rescale the action and get the appropriate control dictionary given the control mode.
         self.control_dict = self.rescale_action(action)
+        
+        # Storing initial state to calculate v_dot and w_dot
+        init_vehicle_state = deepcopy(self.vehicle_state)
 
         # Now update the wind state using the wind profile
         self.vehicle_state['wind'] = self.wind_profile.update(self.t, self.vehicle_state['x'])
+
+        # Update IMU acceleration and gyro
+        v_dot = (self.vehicle_state['v'] - init_vehicle_state['v']) * 100 # TODO: Link with simrate variable definition in the init Simrate* delta V is acceleration
+        w_dot = (self.vehicle_state['w'] - init_vehicle_state['w']) * 100 # TODO: Link with simrate variable definition in the init Simrate* delta W is acceleration
+        imu_measurement = Imu.measurement(self, {self.vehicle_state['x'],self.vehicle_state['v'],self.vehicle_state['q'],self.vehicle_state['w']}, {v_dot, w_dot})
+        self.vehicle_state['imu_accel'] = imu_measurement.accel
+        self.vehicle_state['imu_gryo'] = imu_measurement.gyro
 
         # Last perform forward integration using the commanded motor speed and the current state
         self.vehicle_state = self.quadrotor.step(self.vehicle_state, self.control_dict, self.t_step)
@@ -406,7 +420,13 @@ class QuadrotorEnv(gym.Env):
     
     def _get_obs(self):
         # Concatenate all the state variables into a single vector
-        state_vec = np.concatenate([self.vehicle_state['x'], self.vehicle_state['v'], self.vehicle_state['q'], self.vehicle_state['w']], dtype=np.float32)
+        state_vec = np.concatenate([self.vehicle_state['x'], 
+                                    self.vehicle_state['v'], 
+                                    self.vehicle_state['q'], 
+                                    self.vehicle_state['w']
+                                   # self.vehicle_state['wind']
+                                    ]
+                                   , dtype=np.float32)
 
         return state_vec
     

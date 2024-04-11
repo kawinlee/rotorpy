@@ -200,6 +200,8 @@ class Multirotor(object):
         # Add noise to the motor speed measurement
         state['rotor_speeds'] += np.random.normal(scale=np.abs(self.motor_noise), size=(self.num_rotors,))
 
+        # TODO: Ask Spencer how I can integrate the acceleration and gryo passed in
+
         return state
 
     def _s_dot_fn(self, t, s, cmd_rotor_speeds):
