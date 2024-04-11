@@ -69,6 +69,7 @@ if inject_eval_scenario:
                 control_mode =selected_scenario.get('control_mode'), 
                 reward_fn = selected_scenario.get('reward_fn'),
                 quad_params = selected_scenario.get('quad_params'),
+                wind_profile = selected_scenario.get('wind_profile'),
                 max_time = selected_scenario.get('max_time'),
                 world = selected_scenario.get('world'),
                 sim_rate = selected_scenario.get('sim_rate'),
