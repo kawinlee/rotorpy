@@ -148,7 +148,7 @@ class Multirotor(object):
 
         return
 
-    def statedot(self, state, control, t_step):
+    def statedot(self, state, control, t_step): # TODO Look into this
         """
         Integrate dynamics forward from state given constant cmd_rotor_speeds for time t_step.
         """
@@ -171,7 +171,7 @@ class Multirotor(object):
         return state_dot 
 
 
-    def step(self, state, control, t_step):
+    def step(self, state, control, t_step, save_imu=False):
         """
         Integrate dynamics forward from state given constant control for time t_step.
         """
@@ -186,6 +186,11 @@ class Multirotor(object):
             return self._s_dot_fn(t, s, cmd_rotor_speeds)
         s = Multirotor._pack_state(state)
 
+        if save_imu:
+            s_dot = s_dot_fn(0, s)
+            v_dot = s_dot[3:6]
+            w_dot = s_dot[10:13]    
+
         # Option 1 - RK45 integration
         sol = scipy.integrate.solve_ivp(s_dot_fn, (0, t_step), s, first_step=t_step)
         s = sol['y'][:,-1]
@@ -193,7 +198,7 @@ class Multirotor(object):
         # s = s + s_dot_fn(0, s) * t_step  # first argument doesn't matter. It's time invariant model
 
         state = Multirotor._unpack_state(s)
-
+        
         # Re-normalize unit quaternion.
         state['q'] = state['q'] / norm(state['q'])
 
@@ -201,6 +206,10 @@ class Multirotor(object):
         state['rotor_speeds'] += np.random.normal(scale=np.abs(self.motor_noise), size=(self.num_rotors,))
 
         # TODO: Ask Spencer how I can integrate the acceleration and gryo passed in
+
+        if save_imu:
+            state['w_dot'] = w_dot
+            state['v_dot'] = v_dot
 
         return state
 

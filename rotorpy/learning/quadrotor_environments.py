@@ -53,8 +53,6 @@ class QuadrotorEnv(gym.Env):
                                   'w': np.zeros(3,),
                                   'wind': np.array([0,0,0]),  # Since wind is handled elsewhere, this value is overwritten
                                   'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53]),
-                                  'imu_accel': np.array([0,0,0]),
-                                  'imu_gyro': np.array([0,0,0])
                                   },
                  control_mode = 'cmd_vel',
                  reward_fn = hover_reward,            
@@ -69,6 +67,7 @@ class QuadrotorEnv(gym.Env):
                  fig = None,                  # Figure for rendering. Optional. 
                  ax = None,                   # Axis for rendering. Optional. 
                  color = None,                # The color of the quadrotor. 
+                 imu = Imu()                  # IMU  
                 ):
         super(QuadrotorEnv, self).__init__()
 
@@ -77,6 +76,8 @@ class QuadrotorEnv(gym.Env):
         self.initial_state = initial_state
 
         self.vehicle_state = initial_state
+
+        self.imu = imu
 
         assert control_mode in self.metadata["control_modes"]  # Don't accept improper control modes
         self.control_mode = control_mode
@@ -104,8 +105,8 @@ class QuadrotorEnv(gym.Env):
         #     wind, wind, observation_state[13:16]
         #     motor_speeds, rotor_speeds, observation_state[16:20]
         # For simplicitly, we assume these observations can lie within -inf to inf. 
-
-        self.observation_space = spaces.Box(low = -np.inf, high=np.inf, shape = (13,), dtype=np.float32)
+                                                                        # Number of params should be passable fromscenario dictionary to adjust automatically 
+        self.observation_space = spaces.Box(low = -np.inf, high=np.inf, shape = (18,), dtype=np.float32)
         
         ############ ACTION SPACE
 
@@ -293,22 +294,18 @@ class QuadrotorEnv(gym.Env):
         
         # First rescale the action and get the appropriate control dictionary given the control mode.
         self.control_dict = self.rescale_action(action)
-        
-        # Storing initial state to calculate v_dot and w_dot
-        init_vehicle_state = deepcopy(self.vehicle_state)
 
         # Now update the wind state using the wind profile
         self.vehicle_state['wind'] = self.wind_profile.update(self.t, self.vehicle_state['x'])
 
-        # Update IMU acceleration and gyro
-        v_dot = (self.vehicle_state['v'] - init_vehicle_state['v']) * 100 # TODO: Link with simrate variable definition in the init Simrate* delta V is acceleration
-        w_dot = (self.vehicle_state['w'] - init_vehicle_state['w']) * 100 # TODO: Link with simrate variable definition in the init Simrate* delta W is acceleration
-        imu_measurement = Imu.measurement(self, {self.vehicle_state['x'],self.vehicle_state['v'],self.vehicle_state['q'],self.vehicle_state['w']}, {v_dot, w_dot})
-        self.vehicle_state['imu_accel'] = imu_measurement.accel
-        self.vehicle_state['imu_gryo'] = imu_measurement.gyro
-
+        # We have access to vdot and omegadot in self.quadrotor.step
+        
+    
         # Last perform forward integration using the commanded motor speed and the current state
-        self.vehicle_state = self.quadrotor.step(self.vehicle_state, self.control_dict, self.t_step)
+        self.vehicle_state= self.quadrotor.step(self.vehicle_state, self.control_dict, self.t_step, save_imu=True)
+        accel_measurement, gyro_measurement = self.imu.measurement(self.vehicle_state, {'v_dot': self.vehicle_state['v_dot'], 'w_dot': self.vehicle_state['w_dot']})
+        self.vehicle_state['v_dot_noisy'] = accel_measurement
+        self.vehicle_state['w_dot_noisy'] = gyro_measurement
         observation = self._get_obs()
         
         # Update t by t_step
@@ -423,8 +420,9 @@ class QuadrotorEnv(gym.Env):
         state_vec = np.concatenate([self.vehicle_state['x'], 
                                     self.vehicle_state['v'], 
                                     self.vehicle_state['q'], 
-                                    self.vehicle_state['w']
-                                   # self.vehicle_state['wind']
+                                    self.vehicle_state['w'],
+                                    self.vehicle_state['v_dot_noisy'],
+                                    self.vehicle_state['w_dot_noisy'] # Delete after testing to see if it helps
                                     ]
                                    , dtype=np.float32)
 
