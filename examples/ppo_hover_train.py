@@ -35,9 +35,9 @@ if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 
 #Ask user if they want to run the default simulation
-inject_eval_scenario = input("Would you like to inject your evaluation scenario? (Y/N)").lower()
+inject_eval_scenario = input("Would you like to inject your evaluation scenario? (Y/N)").lower() == "y"
 # Ask user if they want to run ppo_hover_eval automatically to see progress 
-auto_eval = input("Would you like to get training progress video updates? (Y/N)").lower()
+auto_eval = input("Would you like to get training progress video updates? (Y/N)").lower() == "y"
 
 # Next import Stable Baselines.
 try:
@@ -109,7 +109,7 @@ while True:  # Run indefinitely..
     # Save the model
     model.save(f"{models_dir}/PPO/{start_time.strftime('%H-%M-%S')}/hover_{num_timesteps*(epoch_count+1)}")
     # This is how the tensorboard files are created 
-    if (auto_eval == "y") & (epoch_count % 5 == 0):
+    if (auto_eval) & (epoch_count % 5 == 0):
         evaluate(auto_mode=True)
 
     epoch_count += 1
