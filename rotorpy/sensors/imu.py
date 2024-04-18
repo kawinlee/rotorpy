@@ -94,8 +94,8 @@ class Imu:
         """
         q_WB = state['q']
         w_WB = state['w']
-        alpha_WB_W = acceleration['wdot']
-        a_WB_W = acceleration['vdot']
+        alpha_WB_W = acceleration.get('w_dot')
+        a_WB_W = acceleration.get('v_dot')
 
         # Rotation matrix of the body frame B in world frame W
         R_WB = Rotation.from_quat(q_WB).as_matrix()

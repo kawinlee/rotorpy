@@ -53,6 +53,10 @@ class QuadrotorEnv(gym.Env):
                                   'w': np.zeros(3,),
                                   'wind': np.array([0,0,0]),  # Since wind is handled elsewhere, this value is overwritten
                                   'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53]),
+                                  'v_dot': np.array([0,0,0]),
+                                  'w_dot': np.array([0,0,0]),
+                                  'v_dot_noisy': np.zeros(3,),
+                                  'w_dot_noisy': np.zeros(3,),
                                   },
                  control_mode = 'cmd_vel',
                  reward_fn = hover_reward,            
@@ -106,7 +110,7 @@ class QuadrotorEnv(gym.Env):
         #     motor_speeds, rotor_speeds, observation_state[16:20]
         # For simplicitly, we assume these observations can lie within -inf to inf. 
                                                                         # Number of params should be passable fromscenario dictionary to adjust automatically 
-        self.observation_space = spaces.Box(low = -np.inf, high=np.inf, shape = (18,), dtype=np.float32)
+        self.observation_space = spaces.Box(low = -np.inf, high=np.inf, shape = (25,), dtype=np.float32)
         
         ############ ACTION SPACE
 
@@ -220,19 +224,25 @@ class QuadrotorEnv(gym.Env):
             # Randomly select an initial state for the quadrotor. At least assume it is level. 
             pos = np.random.uniform(low=-options['pos_bound'], high=options['pos_bound'], size=(3,))
             vel = np.random.uniform(low=-options['vel_bound'], high=options['vel_bound'], size=(3,))
-            state = {'x': pos,
-                     'v': vel,
-                     'q': np.array([0, 0, 0, 1]), # [i,j,k,w]
-                     'w': np.zeros(3,),
-                     'wind': np.array([0,0,0]),  # Since wind is handled elsewhere, this value is overwritten
-                     'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53])}
+            state = {
+                    'x': pos,
+                    'v': vel,
+                    'q': np.array([0, 0, 0, 1]), # [i,j,k,w]
+                    'w': np.zeros(3,),
+                    'wind': np.array([0,0,0]),  # Since wind is handled elsewhere, this value is overwritten
+                    'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53]),
+                    'v_dot': np.zeros(3,),
+                    'w_dot': np.zeros(3,),
+                    'v_dot_noisy': np.zeros(3,),
+                    'w_dot_noisy': np.zeros(3,),
+                     }
 
         elif initial_state == 'deterministic':
             state = self.initial_state
         
         elif isinstance(initial_state, dict):
             # Ensure the correct keys are in dict.  
-            if all(key in initial_state for key in ('x', 'v', 'q', 'w', 'wind', 'rotor_speeds')):
+            if all(key in initial_state for key in ('x', 'v', 'q', 'w', 'wind', 'rotor_speeds', 'v_dot','w_dot','v_dot_noisy','w_dot_noisy')):
                 state = initial_state
             else:
                 raise KeyError("Missing state keys in your initial_state. You must specify values for ('x', 'v', 'q', 'w', 'wind', 'rotor_speeds')")
@@ -298,14 +308,12 @@ class QuadrotorEnv(gym.Env):
         # Now update the wind state using the wind profile
         self.vehicle_state['wind'] = self.wind_profile.update(self.t, self.vehicle_state['x'])
 
-        # We have access to vdot and omegadot in self.quadrotor.step
-        
-    
         # Last perform forward integration using the commanded motor speed and the current state
         self.vehicle_state= self.quadrotor.step(self.vehicle_state, self.control_dict, self.t_step, save_imu=True)
-        accel_measurement, gyro_measurement = self.imu.measurement(self.vehicle_state, {'v_dot': self.vehicle_state['v_dot'], 'w_dot': self.vehicle_state['w_dot']})
-        self.vehicle_state['v_dot_noisy'] = accel_measurement
-        self.vehicle_state['w_dot_noisy'] = gyro_measurement
+        # Obtaining the acceleration vector for IMU measurements
+        acceleration_vec = self.imu.measurement(self.vehicle_state, acceleration={'v_dot': self.vehicle_state['v_dot'], 'w_dot': self.vehicle_state['w_dot']})
+        self.vehicle_state['v_dot_noisy'] = acceleration_vec['accel']
+        self.vehicle_state['w_dot_noisy'] = acceleration_vec['gyro']
         observation = self._get_obs()
         
         # Update t by t_step
@@ -417,10 +425,13 @@ class QuadrotorEnv(gym.Env):
     
     def _get_obs(self):
         # Concatenate all the state variables into a single vector
+        print(f"vehicle state{self.vehicle_state}")
         state_vec = np.concatenate([self.vehicle_state['x'], 
                                     self.vehicle_state['v'], 
                                     self.vehicle_state['q'], 
                                     self.vehicle_state['w'],
+                                    self.vehicle_state['v_dot'],
+                                    self.vehicle_state['w_dot'],
                                     self.vehicle_state['v_dot_noisy'],
                                     self.vehicle_state['w_dot_noisy'] # Delete after testing to see if it helps
                                     ]

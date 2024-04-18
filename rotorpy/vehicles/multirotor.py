@@ -55,7 +55,10 @@ class Multirotor(object):
                                             'q': np.array([0, 0, 0, 1]), # [i,j,k,w]
                                             'w': np.zeros(3,),
                                             'wind': np.array([0,0,0]),  # Since wind is handled elsewhere, this value is overwritten
-                                            'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53])},
+                                            'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53]),
+                                            'w_dot': np.zeros(3,),
+                                            'v_dot': np.zeros(3,),
+                                            },
                        control_abstraction='cmd_motor_speeds',
                        aero = True,  
                 ):
