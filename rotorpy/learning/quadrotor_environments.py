@@ -425,7 +425,6 @@ class QuadrotorEnv(gym.Env):
     
     def _get_obs(self):
         # Concatenate all the state variables into a single vector
-        print(f"vehicle state{self.vehicle_state}")
         state_vec = np.concatenate([self.vehicle_state['x'], 
                                     self.vehicle_state['v'], 
                                     self.vehicle_state['q'], 
