@@ -110,7 +110,7 @@ class QuadrotorEnv(gym.Env):
         #     motor_speeds, rotor_speeds, observation_state[16:20]
         # For simplicitly, we assume these observations can lie within -inf to inf. 
                                                                         # Number of params should be passable fromscenario dictionary to adjust automatically 
-        self.observation_space = spaces.Box(low = -np.inf, high=np.inf, shape = (13,), dtype=np.float32)
+        self.observation_space = spaces.Box(low = -np.inf, high=np.inf, shape = (16,), dtype=np.float32)
         
         ############ ACTION SPACE
 
