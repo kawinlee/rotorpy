@@ -110,7 +110,7 @@ class QuadrotorEnv(gym.Env):
         #     motor_speeds, rotor_speeds, observation_state[16:20]
         # For simplicitly, we assume these observations can lie within -inf to inf. 
                                                                         # Number of params should be passable fromscenario dictionary to adjust automatically 
-        self.observation_space = spaces.Box(low = -np.inf, high=np.inf, shape = (25,), dtype=np.float32)
+        self.observation_space = spaces.Box(low = -np.inf, high=np.inf, shape = (13,), dtype=np.float32)
         
         ############ ACTION SPACE
 
@@ -429,10 +429,11 @@ class QuadrotorEnv(gym.Env):
                                     self.vehicle_state['v'], 
                                     self.vehicle_state['q'], 
                                     self.vehicle_state['w'],
-                                    self.vehicle_state['v_dot'],
-                                    self.vehicle_state['w_dot'],
-                                    self.vehicle_state['v_dot_noisy'],
-                                    self.vehicle_state['w_dot_noisy'] # Delete after testing to see if it helps
+                                    self.vehicle_state['wind'],
+                                    #self.vehicle_state['v_dot'], #TODO: remove or add depending on wind or no wind
+                                    #self.vehicle_state['w_dot'], #TODO: remove or add depending on wind or no wind
+                                    #self.vehicle_state['v_dot_noisy'], #TODO: test with noisy and without noisy, passing more predictors than we need 
+                                    #self.vehicle_state['w_dot_noisy'] # Delete after testing to see if it helps
                                     ]
                                    , dtype=np.float32)
 
