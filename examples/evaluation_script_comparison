@@ -1,0 +1,214 @@
+import gymnasium as gym
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+from rotorpy.sensors.imu import Imu
+from rotorpy.wind.dryden_winds import DrydenGust
+from rotorpy.learning.quadrotor_reward_functions import hover_reward
+from rotorpy.vehicles.crazyflie_params import quad_params  # Import quad params for the quadrotor environment.
+
+# Import the QuadrotorEnv gymnasium environment using the following command.
+from rotorpy.learning.quadrotor_environments import QuadrotorEnv
+
+# Reward functions can be specified by the user, or we can import from existing reward functions.
+from rotorpy.learning.quadrotor_reward_functions import hover_reward
+
+# For the baseline, we'll use the stock SE3 controller.
+from rotorpy.controllers.quadrotor_control import SE3Control
+baseline_controller = SE3Control(quad_params)
+
+"""
+In this script, we evaluate the policy trained in ppo_hover_train.py. It's meant to complement the output of ppo_hover_train.py.
+
+The task is for the quadrotor to stabilize to hover at the origin when starting at a random position nearby. 
+
+This script will ask the user which model they'd like to use, and then ask which specific epoch(s) they would like to evaluate.
+Then, for each model epoch selected, 10 agents will be spawned alongside the baseline SE3 controller at random positions. 
+
+Visualization is slow for this!! To speed things up, we save the figures as individual frames in data_out/ppo_hover/. If you
+close out of the matplotlib figure things should run faster. You can also speed it up by only visualizing 1 or 2 RL agents. 
+
+"""
+
+# First we'll set up some directories for saving the policy and logs.
+models_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rotorpy", "learning", "policies", "PPO")
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rotorpy", "learning", "logs")
+output_dir = os.path.join(os.path.dirname(__file__), "..", "rotorpy", "data_out", "ppo_hover")
+
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+# Next import Stable Baselines.
+try:
+    import stable_baselines3
+except:
+    raise ImportError('To run this example you must have Stable Baselines installed via pip install stable_baselines3')
+
+from stable_baselines3 import PPO                                   # We'll use PPO for training.
+
+# Set up the figure for plotting all the agents.
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+
+# Make the environments for the RL agents.
+num_quads = 10
+"""
+def make_env():
+    return gym.make("Quadrotor-v0",
+                control_mode ='cmd_motor_speeds',
+                reward_fn = hover_reward,
+                quad_params = quad_params,
+                max_time = 5,
+                wind_profile = DrydenGust(0.01, sig_wind=np.array([75, 75, 30])),
+                world = None,
+                sim_rate = 100,
+                render_mode='3D',
+                render_fps = 60,
+                fig=fig,
+                ax=ax,
+                color='b')
+
+envs = [make_env() for _ in range(num_quads)]
+
+# Lastly, add in the baseline (SE3 controller) environment.
+envs.append(gym.make("Quadrotor-v0",
+                control_mode ='cmd_motor_speeds',
+                reward_fn = hover_reward,
+                quad_params = quad_params,
+                max_time = 5,
+                wind_profile = DrydenGust(0.01, sig_wind=np.array([75, 75, 30])),
+                world = None,
+                sim_rate = 100,
+                render_mode='3D',
+                render_fps = 60,
+                fig=fig,
+                ax=ax,
+                color='k'))  # Geometric controller
+"""
+envs = []
+
+envs.append(gym.make("Quadrotor-v0",
+                control_mode ='cmd_motor_speeds',
+                reward_fn = hover_reward,
+                quad_params = quad_params,
+                max_time = 5,
+                wind_profile = DrydenGust(0.01, sig_wind=np.array([75, 75, 30])),
+                world = None,
+                sim_rate = 100,
+                render_mode='3D',
+                render_fps = 60,
+                fig=fig,
+                ax=ax,
+                color='k',
+                observation_space_shape = (16,)))
+
+envs.append(gym.make("Quadrotor-v0",
+                control_mode ='cmd_motor_speeds',
+                reward_fn = hover_reward,
+                quad_params = quad_params,
+                max_time = 5,
+                wind_profile = DrydenGust(0.01, sig_wind=np.array([75, 75, 30])),
+                world = None,
+                sim_rate = 100,
+                render_mode='3D',
+                render_fps = 60,
+                fig=fig,
+                ax=ax,
+                color='k',
+                observation_space_shape = (16,)))
+
+envs.append(gym.make("Quadrotor-v0",
+                control_mode ='cmd_motor_speeds',
+                reward_fn = hover_reward,
+                quad_params = quad_params,
+                max_time = 5,
+                wind_profile = DrydenGust(0.01, sig_wind=np.array([75, 75, 30])),
+                world = None,
+                sim_rate = 100,
+                render_mode='3D',
+                render_fps = 60,
+                fig=fig,
+                ax=ax,
+                color='k',
+                observation_space_shape = (25,)))
+
+# Print out policies for the user to select.
+def extract_number(filename):
+    return int(filename.split('_')[1].split('.')[0])
+
+# Function to evaluate the model
+def evaluate_model(model, env, num_episodes=1000):
+    total_tracking_error = []
+    for episode in range(num_episodes):
+        obs, _ = env.reset()
+        done = False
+        episode_error = 0
+        while not done:
+            # Ensure obs has the correct shape before predicting
+            if len(obs.shape) == 1:
+                obs = np.expand_dims(obs, axis=0)
+
+            action, _states = model.predict(obs, deterministic=True)
+            obs, reward, terminated, truncated, info = env.step(action)
+            #obs = obs[0]  # Extract observation if necessary
+            done = terminated or truncated  # Combine termination and truncation
+            # Calculate reward using the custom hover_reward function
+            tracking_error = hover_reward(obs, action)
+            episode_error += tracking_error
+        total_tracking_error.append(episode_error)
+    avg_tracking_error = np.mean(total_tracking_error)
+    return total_tracking_error, avg_tracking_error
+
+
+models = []
+for j in range(3):
+
+    models_available = os.listdir(models_dir)
+    print("Select one of the models:")
+    for i, name in enumerate(models_available):
+        print(f"{i}: {name}")
+    model_idx = int(input("Enter the model index: "))
+
+    num_timesteps_dir = os.path.join(models_dir, models_available[model_idx])
+    num_timesteps_list = [fname for fname in os.listdir(num_timesteps_dir) if fname.startswith('hover_')]
+    num_timesteps_list_sorted = sorted(num_timesteps_list, key=extract_number)
+
+    print("Select one of the epochs:")
+    for i, name in enumerate(num_timesteps_list_sorted):
+        print(f"{i}: {name}")
+    num_timesteps_idx = int(input("Enter the epoch index: "))
+    num_timesteps_dir = os.path.join(models_dir, models_available[model_idx])
+
+    model_path = os.path.join(num_timesteps_dir, num_timesteps_list_sorted[num_timesteps_idx])
+    print(f"Loading model from the path {model_path}")
+    model = PPO.load(model_path, env=envs[j], tensorboard_log=log_dir)
+    models.append(model)
+
+model_no_wind = models[0]
+model_ground_truth_wind = models[1]
+model_imu = models[2]
+
+# Evaluate the model in different scenarios
+tracking_errors_no_wind, avg_error_no_wind = evaluate_model(model_no_wind, envs[0])
+tracking_errors_ground_truth, avg_error_ground_truth = evaluate_model(model_ground_truth_wind, envs[1])
+tracking_errors_imu, avg_error_imu = evaluate_model(model_imu, envs[2])
+
+# Print average tracking errors
+print(f"Average Tracking Error (No Wind): {avg_error_no_wind}")
+print(f"Average Tracking Error (Ground Truth Wind): {avg_error_ground_truth}")
+print(f"Average Tracking Error (IMU Wind): {avg_error_imu}")
+
+# Generate box plots
+data = [tracking_errors_no_wind, tracking_errors_ground_truth, tracking_errors_imu]
+labels = ['No Wind', 'Ground Truth Wind', 'IMU Wind']
+
+plt.figure(figsize=(10, 6))
+plt.boxplot(data, labels=labels)
+plt.title('Tracking Error Comparison')
+plt.ylabel('Tracking Error')
+plt.xlabel('Scenarios')
+# Save the plot as a PNG file
+plt.savefig('tracking_error_comparison.png')
+plt.show()
+
