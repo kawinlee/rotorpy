@@ -17,62 +17,65 @@ from gymnasium import spaces
 import math
 from copy import deepcopy
 
+
 class QuadrotorEnv(gym.Env):
     """
 
-    A quadrotor environment for reinforcement learning using Gymnasium. 
+    A quadrotor environment for reinforcement learning using Gymnasium.
 
     Inputs:
-        initial_state: the initial state of the quadrotor. The default is hover. 
+        initial_state: the initial state of the quadrotor. The default is hover.
         control_mode: the appropriate control abstraction that is used by the controller, options are...
-                                    'cmd_motor_speeds': the controller directly commands motor speeds. 
+                                    'cmd_motor_speeds': the controller directly commands motor speeds.
                                     'cmd_motor_thrusts': the controller commands forces for each rotor.
-                                    'cmd_ctbr': the controller commands a collective thrsut and body rates. 
+                                    'cmd_ctbr': the controller commands a collective thrsut and body rates.
                                     'cmd_ctbm': the controller commands a collective thrust and moments on the x/y/z body axes
-                                    'cmd_vel': the controller commands a velocity vector in the body frame. 
-        reward_fn: the reward function, default to hover, but the user can pass in any function that is used as a reward. 
-        quad_params: the parameters for the quadrotor. 
-        max_time: the maximum time of the session. After this time, the session will exit. 
-        world: the world for the quadrotor to operate within. 
-        sim_rate: the simulation rate (in Hz), i.e. the timestep. 
-        aero: boolean, determines whether or not aerodynamic wrenches are computed. 
+                                    'cmd_vel': the controller commands a velocity vector in the body frame.
+        reward_fn: the reward function, default to hover, but the user can pass in any function that is used as a reward.
+        quad_params: the parameters for the quadrotor.
+        max_time: the maximum time of the session. After this time, the session will exit.
+        world: the world for the quadrotor to operate within.
+        sim_rate: the simulation rate (in Hz), i.e. the timestep.
+        aero: boolean, determines whether or not aerodynamic wrenches are computed.
         render_mode: render the quadrotor.
-        render_fps: rendering frames per second, lower this for faster visualization. 
-        ax: for plotting purposes, you can supply an axis object that the quadrotor will visualize on. 
+        render_fps: rendering frames per second, lower this for faster visualization.
+        ax: for plotting purposes, you can supply an axis object that the quadrotor will visualize on.
         color: choose the color of the quadrotor. If none, it will randomly select a color.
     """
 
-    metadata = {"render_modes": ["None", "3D", "console"], 
+    metadata = {"render_modes": ["None", "3D", "console"],
                 "render_fps": 30,
                 "control_modes": ['cmd_motor_speeds', 'cmd_motor_thrusts', 'cmd_ctbr', 'cmd_ctbm', 'cmd_vel']}
 
-    def __init__(self, 
-                 initial_state = {'x': np.array([0,0,0]),
-                                  'v': np.zeros(3,),
-                                  'q': np.array([0, 0, 0, 1]), # [i,j,k,w]
-                                  'w': np.zeros(3,),
-                                  'wind': np.array([0,0,0]),  # Since wind is handled elsewhere, this value is overwritten
-                                  'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53]),
-                                  'v_dot': np.array([0,0,0]),
-                                  'w_dot': np.array([0,0,0]),
-                                  'v_dot_noisy': np.zeros(3,),
-                                  'w_dot_noisy': np.zeros(3,),
-                                  },
-                 control_mode = 'cmd_vel',
-                 reward_fn = hover_reward,            
-                 quad_params = crazyflie_params,                   
-                 max_time = 10,                # Maximum time to run the simulation for in a single session.
-                 wind_profile = None,         # wind profile object, if none is supplied it will choose no wind. 
-                 world        = None,         # The world object
-                 sim_rate = 100,              # The update frequency of the simulator in Hz
-                 aero = True,                 # Whether or not aerodynamic wrenches are computed.
-                 render_mode = "None",        # The rendering mode
-                 render_fps = 30,             # The rendering frames per second. Lower this for faster visualization. 
-                 fig = None,                  # Figure for rendering. Optional. 
-                 ax = None,                   # Axis for rendering. Optional. 
-                 color = None,                # The color of the quadrotor. 
-                 imu = Imu()                  # IMU  
-                ):
+    def __init__(self,
+                 initial_state={'x': np.array([0, 0, 0]),
+                                'v': np.zeros(3, ),
+                                'q': np.array([0, 0, 0, 1]),  # [i,j,k,w]
+                                'w': np.zeros(3, ),
+                                'wind': np.array([0, 0, 0]),
+                                # Since wind is handled elsewhere, this value is overwritten
+                                'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53]),
+                                'v_dot': np.array([0, 0, 0]),
+                                'w_dot': np.array([0, 0, 0]),
+                                'v_dot_noisy': np.zeros(3, ),
+                                'w_dot_noisy': np.zeros(3, ),
+                                },
+                 control_mode='cmd_vel',
+                 reward_fn=hover_reward,
+                 quad_params=crazyflie_params,
+                 max_time=10,  # Maximum time to run the simulation for in a single session.
+                 wind_profile=None,  # wind profile object, if none is supplied it will choose no wind.
+                 world=None,  # The world object
+                 sim_rate=100,  # The update frequency of the simulator in Hz
+                 aero=True,  # Whether or not aerodynamic wrenches are computed.
+                 render_mode="None",  # The rendering mode
+                 render_fps=30,  # The rendering frames per second. Lower this for faster visualization.
+                 fig=None,  # Figure for rendering. Optional.
+                 ax=None,  # Axis for rendering. Optional.
+                 color=None,  # The color of the quadrotor.
+                 imu=Imu(),  # IMU
+                 observation_space_shape = (13,) # Default shape of observation space
+                 ):
         super(QuadrotorEnv, self).__init__()
 
         self.metadata['render_fps'] = render_fps
@@ -87,11 +90,12 @@ class QuadrotorEnv(gym.Env):
         self.control_mode = control_mode
 
         self.sim_rate = sim_rate
-        self.t_step = 1/self.sim_rate
+        self.t_step = 1 / self.sim_rate
         self.reward_fn = reward_fn
 
-        # Create quadrotor from quad params and control abstraction. 
-        self.quadrotor = Multirotor(quad_params=quad_params, initial_state=initial_state, control_abstraction=control_mode, aero=aero)
+        # Create quadrotor from quad params and control abstraction.
+        self.quadrotor = Multirotor(quad_params=quad_params, initial_state=initial_state,
+                                    control_abstraction=control_mode, aero=aero)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -108,18 +112,18 @@ class QuadrotorEnv(gym.Env):
         #     body rates, w, observation_state[10:13]
         #     wind, wind, observation_state[13:16]
         #     motor_speeds, rotor_speeds, observation_state[16:20]
-        # For simplicitly, we assume these observations can lie within -inf to inf. 
-                                                                        # Number of params should be passable fromscenario dictionary to adjust automatically 
-        self.observation_space = spaces.Box(low = -np.inf, high=np.inf, shape = (16,), dtype=np.float32)
-        
+        # For simplicitly, we assume these observations can lie within -inf to inf.
+        # Number of params should be passable fromscenario dictionary to adjust automatically
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=observation_space_shape, dtype=np.float32)
+
         ############ ACTION SPACE
 
-        # For generalizability, we assume the controller outputs 4 numbers between -1 and 1. Depending on the control mode, we scale these appropriately. 
-        
+        # For generalizability, we assume the controller outputs 4 numbers between -1 and 1. Depending on the control mode, we scale these appropriately.
+
         if self.control_mode == 'cmd_vel':
-            self.action_space = spaces.Box(low = -1, high = 1, shape = (3,), dtype=np.float32)
+            self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)
         else:
-            self.action_space = spaces.Box(low = -1, high = 1, shape = (4,), dtype=np.float32)
+            self.action_space = spaces.Box(low=-1, high=1, shape=(4,), dtype=np.float32)
 
         ######  Min/max values for scaling control outputs.
 
@@ -127,21 +131,21 @@ class QuadrotorEnv(gym.Env):
         self.rotor_speed_min = self.quadrotor.rotor_speed_min
 
         # Compute the min/max thrust by assuming the rotor is spinning at min/max speed. (also generalizes to bidirectional rotors)
-        self.max_thrust = self.quadrotor.k_eta * self.quadrotor.rotor_speed_max**2
-        self.min_thrust = self.quadrotor.k_eta * self.quadrotor.rotor_speed_min**2
+        self.max_thrust = self.quadrotor.k_eta * self.quadrotor.rotor_speed_max ** 2
+        self.min_thrust = self.quadrotor.k_eta * self.quadrotor.rotor_speed_min ** 2
 
         # Find the maximum moment on each axis, N-m
         self.max_roll_moment = self.max_thrust * np.abs(self.quadrotor.rotor_pos['r1'][1])
         self.max_pitch_moment = self.max_thrust * np.abs(self.quadrotor.rotor_pos['r1'][0])
-        self.max_yaw_moment = self.quadrotor.k_m * self.quadrotor.rotor_speed_max**2
+        self.max_yaw_moment = self.quadrotor.k_m * self.quadrotor.rotor_speed_max ** 2
 
         # Set the maximum body rate on each axis (this is hand selected), rad/s
         self.max_roll_br = 7.0
-        self.max_pitch_br = 7.0 
+        self.max_pitch_br = 7.0
         self.max_yaw_br = 3.0
 
         # Set the maximum speed command (this is hand selected), m/s
-        self.max_vel = 3/math.sqrt(3)   # Selected so that at most the max speed is 3 m/s
+        self.max_vel = 3 / math.sqrt(3)  # Selected so that at most the max speed is 3 m/s
 
         ###################################################################################################
 
@@ -150,14 +154,14 @@ class QuadrotorEnv(gym.Env):
 
         if world is None:
             # If no world is specified, assume that it means that the intended world is free space.
-            wbound = 4 
-            self.world = World.empty((-wbound, wbound, -wbound, 
-                                       wbound, -wbound, wbound))
+            wbound = 4
+            self.world = World.empty((-wbound, wbound, -wbound,
+                                      wbound, -wbound, wbound))
         else:
             self.world = world
 
         if wind_profile is None:
-            # If wind is not specified, default to no wind. 
+            # If wind is not specified, default to no wind.
             from rotorpy.wind.default_winds import NoWind
             self.wind_profile = NoWind()
         else:
@@ -178,9 +182,9 @@ class QuadrotorEnv(gym.Env):
             self.world_artists = None
             self.title_artist = self.ax.set_title('t = {}'.format(self.t))
 
-        self.rendering = False   # Bool for tracking when the renderer is actually rendering a frame. 
+        self.rendering = False  # Bool for tracking when the renderer is actually rendering a frame.
 
-        return 
+        return
 
     def render(self):
         if self.render_mode == '3D':
@@ -192,18 +196,18 @@ class QuadrotorEnv(gym.Env):
         if self.fig is not None:
             # Close the plots
             plt.close('all')
-    
+
     def reset(self, seed=None, initial_state='random', options={'pos_bound': 2, 'vel_bound': 0}):
         """
         Reset the environment
         Inputs:
-            seed: the seed for any random number generation, mostly for reproducibility. 
+            seed: the seed for any random number generation, mostly for reproducibility.
             initial_state: determines how to set the quadrotor again. Options are...
-                        'random': will randomly select the state of the quadrotor. 
+                        'random': will randomly select the state of the quadrotor.
                         'deterministic': will set the state to the initial state selected by the user when creating
-                                         the quadrotor environment (usually hover). 
-                        the user can also specify the state itself as a dictionary... e.g. 
-                            reset(options={'initial_state': 
+                                         the quadrotor environment (usually hover).
+                        the user can also specify the state itself as a dictionary... e.g.
+                            reset(options={'initial_state':
                                  {'x': np.array([0,0,0]),
                                   'v': np.zeros(3,),
                                   'q': np.array([0, 0, 0, 1]), # [i,j,k,w]
@@ -211,46 +215,49 @@ class QuadrotorEnv(gym.Env):
                                   'wind': np.array([0,0,0]),  # Since wind is handled elsewhere, this value is overwritten
                                   'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53])}
                                   })
-            options: dictionary for misc options for resetting the scene. 
-                        'pos_bound': the min/max position region for random placement. 
+            options: dictionary for misc options for resetting the scene.
+                        'pos_bound': the min/max position region for random placement.
                         'vel_bound': the min/max velocity region for random placement
-                                
+
         """
-        assert options['pos_bound'] >= 0 and options['vel_bound'] >= 0 , "Bounds must be greater than or equal to 0."
+        assert options['pos_bound'] >= 0 and options['vel_bound'] >= 0, "Bounds must be greater than or equal to 0."
 
         super().reset(seed=seed)
 
         if initial_state == 'random':
-            # Randomly select an initial state for the quadrotor. At least assume it is level. 
+            # Randomly select an initial state for the quadrotor. At least assume it is level.
             pos = np.random.uniform(low=-options['pos_bound'], high=options['pos_bound'], size=(3,))
             vel = np.random.uniform(low=-options['vel_bound'], high=options['vel_bound'], size=(3,))
             state = {
-                    'x': pos,
-                    'v': vel,
-                    'q': np.array([0, 0, 0, 1]), # [i,j,k,w]
-                    'w': np.zeros(3,),
-                    'wind': np.array([0,0,0]),  # Since wind is handled elsewhere, this value is overwritten
-                    'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53]),
-                    'v_dot': np.zeros(3,),
-                    'w_dot': np.zeros(3,),
-                    'v_dot_noisy': np.zeros(3,),
-                    'w_dot_noisy': np.zeros(3,),
-                     }
+                'x': pos,
+                'v': vel,
+                'q': np.array([0, 0, 0, 1]),  # [i,j,k,w]
+                'w': np.zeros(3, ),
+                'wind': np.array([0, 0, 0]),  # Since wind is handled elsewhere, this value is overwritten
+                'rotor_speeds': np.array([1788.53, 1788.53, 1788.53, 1788.53]),
+                'v_dot': np.zeros(3, ),
+                'w_dot': np.zeros(3, ),
+                'v_dot_noisy': np.zeros(3, ),
+                'w_dot_noisy': np.zeros(3, ),
+            }
 
         elif initial_state == 'deterministic':
             state = self.initial_state
-        
+
         elif isinstance(initial_state, dict):
-            # Ensure the correct keys are in dict.  
-            if all(key in initial_state for key in ('x', 'v', 'q', 'w', 'wind', 'rotor_speeds', 'v_dot','w_dot','v_dot_noisy','w_dot_noisy')):
+            # Ensure the correct keys are in dict.
+            if all(key in initial_state for key in
+                   ('x', 'v', 'q', 'w', 'wind', 'rotor_speeds', 'v_dot', 'w_dot', 'v_dot_noisy', 'w_dot_noisy')):
                 state = initial_state
             else:
-                raise KeyError("Missing state keys in your initial_state. You must specify values for ('x', 'v', 'q', 'w', 'wind', 'rotor_speeds')")
+                raise KeyError(
+                    "Missing state keys in your initial_state. You must specify values for ('x', 'v', 'q', 'w', 'wind', 'rotor_speeds')")
 
         else:
-            raise ValueError("You must either specify 'random', 'deterministic', or provide a dict containing your desired initial state.")
-        
-        # Set the initial state. 
+            raise ValueError(
+                "You must either specify 'random', 'deterministic', or provide a dict containing your desired initial state.")
+
+        # Set the initial state.
         self.vehicle_state = state
 
         # Reset the time
@@ -258,7 +265,7 @@ class QuadrotorEnv(gym.Env):
 
         # Reset the reward
         self.reward = 0.0
-        
+
         # Now get observation and info using the new state
         observation = self._get_obs()
         info = self._get_info()
@@ -266,14 +273,13 @@ class QuadrotorEnv(gym.Env):
         self.render()
 
         return (observation, info)
-    
 
     def step(self, action):
 
         """
-        Step the quadrotor dynamics forward by one step based on the policy action. 
+        Step the quadrotor dynamics forward by one step based on the policy action.
         Inputs:
-            action: The action is a 4x1 vector which depends on the control abstraction: 
+            action: The action is a 4x1 vector which depends on the control abstraction:
 
             if control_mode == 'cmd_vel':
                 action[0] (-1,1) := commanded velocity in x direction (will be rescaled to m/s)
@@ -301,7 +307,7 @@ class QuadrotorEnv(gym.Env):
                 action[3] (-1,1) := motor 4 force (will be rescaled to Newtons)
 
         """
-        
+
         # First rescale the action and get the appropriate control dictionary given the control mode.
         self.control_dict = self.rescale_action(action)
 
@@ -309,20 +315,21 @@ class QuadrotorEnv(gym.Env):
         self.vehicle_state['wind'] = self.wind_profile.update(self.t, self.vehicle_state['x'])
 
         # Last perform forward integration using the commanded motor speed and the current state
-        self.vehicle_state= self.quadrotor.step(self.vehicle_state, self.control_dict, self.t_step, save_imu=True)
+        self.vehicle_state = self.quadrotor.step(self.vehicle_state, self.control_dict, self.t_step, save_imu=True)
         # Obtaining the acceleration vector for IMU measurements
-        acceleration_vec = self.imu.measurement(self.vehicle_state, acceleration={'v_dot': self.vehicle_state['v_dot'], 'w_dot': self.vehicle_state['w_dot']})
+        acceleration_vec = self.imu.measurement(self.vehicle_state, acceleration={'v_dot': self.vehicle_state['v_dot'],
+                                                                                  'w_dot': self.vehicle_state['w_dot']})
         self.vehicle_state['v_dot_noisy'] = acceleration_vec['accel']
         self.vehicle_state['w_dot_noisy'] = acceleration_vec['gyro']
         observation = self._get_obs()
-        
+
         # Update t by t_step
         self.t += self.t_step
 
         # Check for safety
         safe = self.safety_exit()
 
-        # Determine whether or not the session should terminate. 
+        # Determine whether or not the session should terminate.
         terminated = (self.t >= self.max_time) or not safe
 
         # Now compute the reward based on the current state
@@ -336,58 +343,60 @@ class QuadrotorEnv(gym.Env):
         self.render()
 
         return (observation, self.reward, terminated, truncated, info)
-    
+
     def close(self):
         """
         Close the environment
         """
         return None
-    
+
     def rescale_action(self, action):
-            """
-            Rescales the action to within the control limits and then assigns the appropriate dictionary. 
-            """
+        """
+        Rescales the action to within the control limits and then assigns the appropriate dictionary.
+        """
 
-            control_dict = {}
+        control_dict = {}
 
-            if self.control_mode == 'cmd_ctbm':
-                # Scale action[0] to (0,1) and then scale to the max thrust
-                cmd_thrust = np.interp(action[0], [-1,1], [self.quadrotor.num_rotors*self.min_thrust, self.quadrotor.num_rotors*self.max_thrust])
+        if self.control_mode == 'cmd_ctbm':
+            # Scale action[0] to (0,1) and then scale to the max thrust
+            cmd_thrust = np.interp(action[0], [-1, 1], [self.quadrotor.num_rotors * self.min_thrust,
+                                                        self.quadrotor.num_rotors * self.max_thrust])
 
-                # Scale the moments
-                cmd_roll_moment = np.interp(action[1], [-1,1], [-self.max_roll_moment, self.max_roll_moment])
-                cmd_pitch_moment = np.interp(action[2], [-1,1], [-self.max_pitch_moment, self.max_pitch_moment])
-                cmd_yaw_moment = np.interp(action[3], [-1,1], [-self.max_yaw_moment, self.max_yaw_moment])
+            # Scale the moments
+            cmd_roll_moment = np.interp(action[1], [-1, 1], [-self.max_roll_moment, self.max_roll_moment])
+            cmd_pitch_moment = np.interp(action[2], [-1, 1], [-self.max_pitch_moment, self.max_pitch_moment])
+            cmd_yaw_moment = np.interp(action[3], [-1, 1], [-self.max_yaw_moment, self.max_yaw_moment])
 
-                control_dict['cmd_thrust'] = cmd_thrust
-                control_dict['cmd_moment'] = np.array([cmd_roll_moment, cmd_pitch_moment, cmd_yaw_moment])
-            
-            elif self.control_mode == 'cmd_ctbr':
-                # Scale action to min and max thrust.
-                cmd_thrust = np.interp(action[0], [-1, 1], [self.quadrotor.num_rotors*self.min_thrust, self.quadrotor.num_rotors*self.max_thrust])
+            control_dict['cmd_thrust'] = cmd_thrust
+            control_dict['cmd_moment'] = np.array([cmd_roll_moment, cmd_pitch_moment, cmd_yaw_moment])
 
-                # Scale the body rates. 
-                cmd_roll_br = np.interp(action[1], [-1,1], [-self.max_roll_br, self.max_roll_br])
-                cmd_pitch_br = np.interp(action[2], [-1,1], [-self.max_pitch_br, self.max_pitch_br])
-                cmd_yaw_br = np.interp(action[3], [-1,1], [-self.max_yaw_br, self.max_yaw_br])
+        elif self.control_mode == 'cmd_ctbr':
+            # Scale action to min and max thrust.
+            cmd_thrust = np.interp(action[0], [-1, 1], [self.quadrotor.num_rotors * self.min_thrust,
+                                                        self.quadrotor.num_rotors * self.max_thrust])
 
-                control_dict['cmd_thrust'] = cmd_thrust
-                control_dict['cmd_w'] = np.array([cmd_roll_br, cmd_pitch_br, cmd_yaw_br])
+            # Scale the body rates.
+            cmd_roll_br = np.interp(action[1], [-1, 1], [-self.max_roll_br, self.max_roll_br])
+            cmd_pitch_br = np.interp(action[2], [-1, 1], [-self.max_pitch_br, self.max_pitch_br])
+            cmd_yaw_br = np.interp(action[3], [-1, 1], [-self.max_yaw_br, self.max_yaw_br])
 
-            elif self.control_mode == 'cmd_motor_speeds':
-                # Scale the action to min and max motor speeds. 
-                control_dict['cmd_motor_speeds'] = np.interp(action, [-1,1], [self.rotor_speed_min, self.rotor_speed_max])
+            control_dict['cmd_thrust'] = cmd_thrust
+            control_dict['cmd_w'] = np.array([cmd_roll_br, cmd_pitch_br, cmd_yaw_br])
 
-            elif self.control_mode == 'cmd_motor_thrusts':
-                # Scale the action to min and max rotor thrusts. 
-                control_dict['cmd_motor_thrusts'] = np.interp(action, [-1,1], [self.min_thrust, self.max_thrust])
-            
-            elif self.control_mode == 'cmd_vel':
-                # Scale the velcoity to min and max values. 
-                control_dict['cmd_v'] = np.interp(action, [-1,1], [-self.max_vel, self.max_vel])
+        elif self.control_mode == 'cmd_motor_speeds':
+            # Scale the action to min and max motor speeds.
+            control_dict['cmd_motor_speeds'] = np.interp(action, [-1, 1], [self.rotor_speed_min, self.rotor_speed_max])
 
-            return control_dict
-    
+        elif self.control_mode == 'cmd_motor_thrusts':
+            # Scale the action to min and max rotor thrusts.
+            control_dict['cmd_motor_thrusts'] = np.interp(action, [-1, 1], [self.min_thrust, self.max_thrust])
+
+        elif self.control_mode == 'cmd_vel':
+            # Scale the velcoity to min and max values.
+            control_dict['cmd_v'] = np.interp(action, [-1, 1], [-self.max_vel, self.max_vel])
+
+        return control_dict
+
     def _get_reward(self, observation, action):
         """
         Compute the reward for the current state and goal.
@@ -399,7 +408,7 @@ class QuadrotorEnv(gym.Env):
         """
 
         return self.reward_fn(observation, action)
-    
+
     def safety_exit(self):
         """
         Return exit status if any safety condition is violated, otherwise None.
@@ -408,47 +417,50 @@ class QuadrotorEnv(gym.Env):
             return False
         if np.any(np.abs(self.vehicle_state['w']) > 100):
             return False
-        if self.vehicle_state['x'][0] < self.world.world['bounds']['extents'][0] or self.vehicle_state['x'][0] > self.world.world['bounds']['extents'][1]:
+        if self.vehicle_state['x'][0] < self.world.world['bounds']['extents'][0] or self.vehicle_state['x'][0] > \
+                self.world.world['bounds']['extents'][1]:
             return False
-        if self.vehicle_state['x'][1] < self.world.world['bounds']['extents'][2] or self.vehicle_state['x'][1] > self.world.world['bounds']['extents'][3]:
+        if self.vehicle_state['x'][1] < self.world.world['bounds']['extents'][2] or self.vehicle_state['x'][1] > \
+                self.world.world['bounds']['extents'][3]:
             return False
-        if self.vehicle_state['x'][2] < self.world.world['bounds']['extents'][4] or self.vehicle_state['x'][2] > self.world.world['bounds']['extents'][5]:
+        if self.vehicle_state['x'][2] < self.world.world['bounds']['extents'][4] or self.vehicle_state['x'][2] > \
+                self.world.world['bounds']['extents'][5]:
             return False
 
         if len(self.world.world.get('blocks', [])) > 0:
-            # If a world has objects in it we need to check for collisions.  
+            # If a world has objects in it we need to check for collisions.
             collision_pts = self.world.path_collisions(self.vehicle_state['x'], 0.25)
             no_collision = collision_pts.size == 0
             if not no_collision:
                 return False
         return True
-    
+
     def _get_obs(self):
         # Concatenate all the state variables into a single vector
-        state_vec = np.concatenate([self.vehicle_state['x'], 
-                                    self.vehicle_state['v'], 
-                                    self.vehicle_state['q'], 
+        state_vec = np.concatenate([self.vehicle_state['x'],
+                                    self.vehicle_state['v'],
+                                    self.vehicle_state['q'],
                                     self.vehicle_state['w'],
                                     self.vehicle_state['wind'],
-                                    #self.vehicle_state['v_dot'], #TODO: remove or add depending on wind or no wind
-                                    #self.vehicle_state['w_dot'], #TODO: remove or add depending on wind or no wind
-                                    #self.vehicle_state['v_dot_noisy'], #TODO: test with noisy and without noisy, passing more predictors than we need 
-                                    #self.vehicle_state['w_dot_noisy'] # Delete after testing to see if it helps
+                                    # self.vehicle_state['v_dot'], #TODO: remove or add depending on wind or no wind
+                                    # self.vehicle_state['w_dot'], #TODO: remove or add depending on wind or no wind
+                                    # self.vehicle_state['v_dot_noisy'], #TODO: test with noisy and without noisy, passing more predictors than we need
+                                    # self.vehicle_state['w_dot_noisy'] # Delete after testing to see if it helps
                                     ]
                                    , dtype=np.float32)
 
         return state_vec
-    
+
     def _get_info(self):
         return {}
 
     def _plot_quad(self):
 
-        if abs(self.t / (1/self.metadata['render_fps']) - round(self.t / (1/self.metadata['render_fps']))) > 5e-2:
+        if abs(self.t / (1 / self.metadata['render_fps']) - round(self.t / (1 / self.metadata['render_fps']))) > 5e-2:
             self.rendering = False  # Set rendering bool to false.
             return
-        
-        self.rendering = True # Set rendering bool to true. 
+
+        self.rendering = True  # Set rendering bool to true.
 
         plot_position = deepcopy(self.vehicle_state['x'])
         plot_rotation = Rotation.from_quat(self.vehicle_state['q']).as_matrix()
@@ -463,8 +475,9 @@ class QuadrotorEnv(gym.Env):
 
         plt.pause(1e-9)
 
-        return 
-    
+        return
+
     def _print_quad(self):
 
-        print("Time: %3.2f \t Position: (%3.2f, %3.2f, %3.2f) \t Reward: %3.2f" % (self.t, self.vehicle_state['x'][0], self.vehicle_state['x'][1], self.vehicle_state['x'][2], self.reward))
+        print("Time: %3.2f \t Position: (%3.2f, %3.2f, %3.2f) \t Reward: %3.2f" % (
+        self.t, self.vehicle_state['x'][0], self.vehicle_state['x'][1], self.vehicle_state['x'][2], self.reward))
