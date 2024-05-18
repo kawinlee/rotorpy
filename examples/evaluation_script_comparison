@@ -131,7 +131,7 @@ envs.append(gym.make("Quadrotor-v0",
                 fig=fig,
                 ax=ax,
                 color='k',
-                observation_space_shape = (25,)))
+                observation_space_shape = (28,)))
 
 # Print out policies for the user to select.
 def extract_number(filename):
