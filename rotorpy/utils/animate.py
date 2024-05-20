@@ -116,13 +116,17 @@ def animate(time, position, rotation, wind, animate_wind, world, filename=None, 
     wind = wind[index,:]
 
     # Set up axes.
+    # for higher quality of videos, Set the figure size.
+    dpi = 100
+    figsize = (1280 / dpi, 720 / dpi)  # Set the figure size for 720p
     if filename is not None:
         if isinstance(filename, Path):
-            fig = plt.figure(filename.name)
+            fig = plt.figure(filename.name, figsize=figsize, dpi=dpi)
         else:
-            fig = plt.figure(filename)
+            fig = plt.figure(filename, figsize=figsize, dpi=dpi)
     else:
-        fig = plt.figure('Animation')
+        fig = plt.figure('Animation', figsize=figsize, dpi=dpi)
+        
     fig.clear()
     ax = fig.add_subplot(projection='3d')
     if not show_axes:
