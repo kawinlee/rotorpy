@@ -222,10 +222,9 @@ def evaluate(auto_mode=False):
         rotation = np.array(rotation_all_drones)
         N, M = x.shape
 
-        # make changes to world, currently displaying double pillars, can use empty 
-        world = World.from_file(
-            os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'rotorpy', 'worlds', 'double_pillar.json')))
-        #world = World.empty() 
+        # defining the world
+        extents = [-3, 3, -3, 3, -1, 2]
+        world = World.empty(extents)
         
         ani = animate.animate(time=T,
                             position = np.stack([x, y, z], axis=2),
